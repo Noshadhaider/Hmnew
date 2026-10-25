@@ -17,11 +17,11 @@ jobs:
           echo "Repository ki files:"
           ls -la
           if [ ! -f settings.gradle.kts ]; then
-            echo "ERROR: settings.gradle.kts repository ke root mein nahi hai. Files kisi folder ke andar upload ho gayi hain, ya zip file upload hui hai (zip kholna zaroori hai)."
+            echo "ERROR: settings.gradle.kts repository ke root mein nahi hai."
             exit 1
           fi
           if [ ! -f app/google-services.json ]; then
-            echo "ERROR: app/google-services.json maujood nahi hai. File app folder ke andar honi chahiye."
+            echo "ERROR: app/google-services.json maujood nahi hai."
             exit 1
           fi
 
@@ -30,13 +30,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
+      - name: Prepare Android SDK
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDKM=$(command -v sdkmanager || echo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager")
+          echo "sdkmanager=$SDKM"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-34" "build-tools;34.0.0" || true
 
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -51,3 +51,4 @@ jobs:
           name: homecam-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          
