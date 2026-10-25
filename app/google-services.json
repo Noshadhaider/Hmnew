@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "270390449270",
+    "project_id": "cctv-35395",
+    "storage_bucket": "cctv-35395.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:270390449270:android:229b8f4442c0b64b5cbb57",
+        "android_client_info": {
+          "package_name": "com.homecam.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpGIpxbReosnWh8oBV6wwXeZzd0kdHq04"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
