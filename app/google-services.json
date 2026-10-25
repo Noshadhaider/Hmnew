@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "270390449270",
+    "firebase_url": "https://cctv-35395-default-rtdb.firebaseio.com",
     "project_id": "cctv-35395",
     "storage_bucket": "cctv-35395.firebasestorage.app"
   },
