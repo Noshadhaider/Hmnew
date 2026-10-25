@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="ur">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HomeCam</title>
+<style>
+  body{font-family:system-ui,sans-serif;margin:0 auto;padding:16px;background:#f4f4f2;color:#222;max-width:560px}
+  h1{font-size:22px;margin:0 0 12px}
+  input[type=text]{width:100%;box-sizing:border-box;padding:10px;font-size:15px;border:1px solid #bbb;border-radius:8px;margin:4px 0}
+  button{padding:12px 8px;font-size:15px;border:1px solid #999;border-radius:8px;background:#fff;cursor:pointer}
+  button:active{background:#e8e8e8}
+  button.on{background:#fff3c4;border-color:#c9a400}
+  button.rec{background:#ffd9d9;border-color:#c33}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .card{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #ccc;border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer}
+  .dot{width:12px;height:12px;border-radius:50%;background:#aaa;flex:none}
+  .dot.on{background:#3b9a2f}
+  .grow{flex:1;min-width:0}
+  .nm{font-size:17px}
+  .sub{font-size:12px;color:#666;margin-top:2px}
+  .rm{padding:6px 10px;font-size:12px}
+  #stage{position:relative;width:100%;height:320px;background:#ddd;border-radius:12px;overflow:hidden;margin-top:10px}
+  #stage img,#stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+  #vid{display:none;background:#000}
+  #st{font-size:14px;margin:8px 0}
+  #info{font-size:13px;color:#555;margin:6px 0;min-height:18px}
+  #pbar{display:none;margin-top:8px;font-size:13px}
+  #volrow{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px}
+  #volrow input{flex:1}
+  details{margin-top:14px;font-size:13px}
+  .page{display:none}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .item{background:#fff;border:1px solid #ccc;border-radius:12px;padding:8px;font-size:12px}
+  .item img{width:100%;height:110px;object-fit:cover;border-radius:8px;cursor:zoom-in;display:block}
+  .item audio{width:100%;margin:6px 0}
+  .item .meta{margin:6px 0;color:#555;word-break:break-word}
+  .item .acts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .item .acts button{padding:8px 4px;font-size:13px}
+  #ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9;align-items:center;justify-content:center;flex-direction:column;gap:10px}
+  #ov img{max-width:96%;max-height:80%;object-fit:contain}
+</style>
+</head>
+<body>
+
+<div id="pList" class="page">
+  <h1>Mere camere</h1>
+  <div id="devs"><div class="sub">Dhoond raha hoon…</div></div>
+  <button id="gal1" style="width:100%;margin-top:6px">Gallery</button>
+  <details>
+    <summary>Database ka address</summary>
+    <input id="dburl" type="text" value="https://cctv-35395-default-rtdb.firebaseio.com">
+    <button id="saveDb" style="width:100%">Save karke dobara chalayen</button>
+  </details>
+</div>
+
+<div id="pCam" class="page">
+  <button id="bBack">&larr; Wapas</button>
+  <h1 id="title" style="margin-top:10px"></h1>
+  <div id="st"></div>
+  <div id="stage">
+    <img id="photo" alt="Aakhri photo">
+    <video id="vid" autoplay playsinline muted></video>
+  </div>
+  <div id="pbar">
+    <span id="pmsg"></span>
+    <div class="row">
+      <button id="bSaveP">Phone mein save karo</button>
+      <button id="bDelP">Delete karo</button>
+    </div>
+  </div>
+  <div id="info">Photo ya Live dabayen.</div>
+  <div class="row">
+    <button id="bPhoto">Photo lo</button>
+    <button id="bLive">Live video</button>
+    <button id="bMic">Awaaz suno</button>
+    <button id="bFace">Camera: peeche wala</button>
+    <button id="bFlash">Flash: band</button>
+    <button id="bRec">Awaaz record karo</button>
+  </div>
+  <div id="volrow">
+    <span>Awaaz tez:</span>
+    <input id="vol" type="range" min="1" max="10" step="0.5" value="4">
+    <span id="volv">4x</span>
+  </div>
+  <button id="gal2" style="width:100%;margin-top:10px">Gallery</button>
+</div>
+
+<div id="pGal" class="page">
+  <button id="bGBack">&larr; Wapas</button>
+  <h1 style="margin-top:10px">Gallery</h1>
+  <div class="sub" id="gcount"></div>
+  <button id="bClear" style="width:100%;margin-top:8px">Sab delete karo</button>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div id="ov">
+  <img id="ovimg" alt="Photo">
+  <div class="row" style="width:90%;max-width:400px">
+    <button id="ovSave">Save karo</button>
+    <button id="ovClose">Band karo</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+const ROOM = "0t23ziy93k2wz3heyapv6kc4";
+const CFG = {
+  apiKey: "AIzaSyCpGIpxbReosnWh8oBV6wwXeZzd0kdHq04",
+  projectId: "cctv-35395",
+  appId: "1:270390449270:android:229b8f4442c0b64b5cbb57"
+};
+const $ = id => document.getElementById(id);
+
+function show(id) {
+  ["pList", "pCam", "pGal"].forEach(p => $(p).style.display = p === id ? "block" : "none");
+}
+
+let idb = null, mem = [];
+function dbOpen() {
+  return new Promise(res => {
+    try {
+      const r = indexedDB.open("homecam", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("media", { keyPath: "id", autoIncrement: true });
+      r.onsuccess = () => { idb = r.result; res(); };
+      r.onerror = () => res();
+    } catch (e) { res(); }
+  });
+}
+function dbAll() {
+  return new Promise(res => {
+    if (!idb) return res(mem.slice());
+    const q = idb.transaction("media").objectStore("media").getAll();
+    q.onsuccess = () => res(q.result);
+    q.onerror = () => res([]);
+  });
+}
+function dbAdd(item) {
+  return new Promise(res => {
+    if (!idb) { item.id = Date.now() + Math.random(); mem.push(item); return res(item.id); }
+    const q = idb.transaction("media", "readwrite").objectStore("media").add(item);
+    q.onsuccess = () => { item.id = q.result; res(q.result); };
+    q.onerror = () => res(null);
+  });
+}
+function dbDel(id) {
+  return new Promise(res => {
+    if (!idb) { mem = mem.filter(x => x.id !== id); return res(); }
+    const q = idb.transaction("media", "readwrite").objectStore("media").delete(id);
+    q.onsuccess = () => res();
+    q.onerror = () => res();
+  });
+}
+function dbClear() {
+  return new Promise(res => {
+    if (!idb) { mem = []; return res(); }
+    const q = idb.transaction("media", "readwrite").objectStore("media").clear();
+    q.onsuccess = () => res();
+    q.onerror = () => res();
+  });
+}
+
+function b64ToBlob(b64, type) {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: type });
+}
+function stamp(ts) {
+  const d = new Date(ts), z = n => String(n).padStart(2, "0");
+  return d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + "_" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds());
+}
+function fileName(it) {
+  const ext = it.type === "photo" ? "jpg" : ((it.blob.type || "").indexOf("mp4") >= 0 ? "m4a" : "webm");
+  return (it.dev || "camera").replace(/[^A-Za-z0-9]+/g, "_") + "_" + stamp(it.ts) + "." + ext;
+}
+function saveItem(it) {
+  const u = URL.createObjectURL(it.blob);
+  const a = document.createElement("a");
+  a.href = u; a.download = fileName(it);
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 4000);
+}
+
+let urls = [];
+async function renderGallery() {
+  urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
+  const items = (await dbAll()).sort((a, b) => b.ts - a.ts);
+  $("gcount").textContent = items.length ? items.length + " cheezen (ye sirf is browser mein mehfooz hain)" : "Abhi kuch nahi. Photo lein ya awaaz record karen.";
+  $("bClear").style.display = items.length ? "block" : "none";
+  const g = $("grid"); g.innerHTML = "";
+  items.forEach(it => {
+    const d = document.createElement("div");
+    d.className = "item";
+    const u = URL.createObjectURL(it.blob); urls.push(u);
+    if (it.type === "photo") {
+      const im = document.createElement("img");
+      im.src = u; im.onclick = () => openOverlay(it, u);
+      d.appendChild(im);
+    } else {
+      const au = document.createElement("audio");
+      au.controls = true; au.src = u;
+      d.appendChild(au);
+    }
+    const m = document.createElement("div");
+    m.className = "meta";
+    m.textContent = (it.type === "photo" ? "Photo" : "Awaaz") + (it.flash ? " (flash)" : "") + " | " + (it.dev || "") + " | " + new Date(it.ts).toLocaleString();
+    d.appendChild(m);
+    const acts = document.createElement("div");
+    acts.className = "acts";
+    const s = document.createElement("button"); s.textContent = "Save";
+    s.onclick = () => saveItem(it);
+    const x = document.createElement("button"); x.textContent = "Delete";
+    x.onclick = async () => { await dbDel(it.id); renderGallery(); };
+    acts.appendChild(s); acts.appendChild(x); d.appendChild(acts);
+    g.appendChild(d);
+  });
+}
+let ovItem = null;
+function openOverlay(it, u) { ovItem = it; $("ovimg").src = u; $("ov").style.display = "flex"; }
+$("ovClose").onclick = () => { $("ov").style.display = "none"; };
+$("ovSave").onclick = () => { if (ovItem) saveItem(ovItem); };
+$("bClear").onclick = async () => {
+  if (confirm("Gallery ki sari photos aur awaazen delete karen?")) { await dbClear(); renderGallery(); }
+};
+let galBack = "pList";
+function openGallery(from) { galBack = from; show("pGal"); renderGallery(); }
+$("gal1").onclick = () => openGallery("pList");
+$("gal2").onclick = () => openGallery("pCam");
+$("bGBack").onclick = () => show(galBack);
+
+$("dburl").value = localStorage.getItem("hc_db") || $("dburl").value;
+$("saveDb").onclick = () => { localStorage.setItem("hc_db", $("dburl").value.trim()); location.reload(); };
+
+firebase.initializeApp({ ...CFG, databaseURL: $("dburl").value.trim() });
+const db = firebase.database();
+const devsRef = db.ref("rooms/" + ROOM + "/devices");
+let offset = 0, devices = {};
+let ref = null, facing = "back", flash = false, mode = "", pc = null, sid = "", lastId = 0, pending = [];
+let camTs = 0, camBat = -1, camChg = false, camName = "";
+let awaitId = 0, lastAddedId = 0, lastPhotoItem = null;
+let remoteStream = null, rec = null, recChunks = [];
+let actx = null, gainNode = null, srcNode = null, comp = null;
+
+dbOpen().then(() => { show("pList"); });
+show("pList");
+
+db.ref(".info/serverTimeOffset").on("value", s => { offset = s.val() || 0; renderList(); renderStatus(); });
+devsRef.on("value", s => { devices = s.val() || {}; renderList(); });
+setInterval(() => { renderList(); renderStatus(); }, 10000);
+
+function isOnline(ts) { return ts > 0 && (Date.now() + offset - ts) < 60000; }
+
+function renderList() {
+  const box = $("devs");
+  const ids = Object.keys(devices);
+  if (!ids.length) {
+    box.innerHTML = '<div class="sub">Abhi koi camera nahi mila. Purane phone par HomeCam kholen.</div>';
+    return;
+  }
+  box.innerHTML = "";
+  ids.sort((a, b) => {
+    const sa = (devices[a].status || {}), sb = (devices[b].status || {});
+    return (isOnline(sb.ts) - isOnline(sa.ts)) || String(sa.name).localeCompare(String(sb.name));
+  });
+  ids.forEach(id => {
+    const st = devices[id].status || {};
+    const on = isOnline(st.ts);
+    const c = document.createElement("div");
+    c.className = "card";
+    const bat = st.battery >= 0 ? " | battery " + st.battery + "%" : "";
+    c.innerHTML = '<div class="dot' + (on ? " on" : "") + '"></div><div class="grow"><div class="nm"></div><div class="sub">' +
+      (on ? "Online" + bat : "Offline") + "</div></div>";
+    c.querySelector(".nm").textContent = st.name || "Naam nahi";
+    c.onclick = () => openDevice(id, st.name || "Camera");
+    if (!on) {
+      const r = document.createElement("button");
+      r.className = "rm";
+      r.textContent = "Hata do";
+      r.onclick = e => {
+        e.stopPropagation();
+        if (confirm("Ye camera list se hata dein?")) devsRef.child(id).remove();
+      };
+      c.appendChild(r);
+    }
+    box.appendChild(c);
+  });
+}
+
+function setInfo(t) { $("info").textContent = t; }
+
+function openDevice(id, name) {
+  ref = devsRef.child(id);
+  camName = name;
+  camTs = 0; camBat = -1; camChg = false;
+  $("title").textContent = name;
+  show("pCam");
+  $("photo").removeAttribute("src");
+  $("pbar").style.display = "none";
+  lastPhotoItem = null;
+  setInfo("Photo ya Live dabayen.");
+  ref.child("status").on("value", s => {
+    const v = s.val() || {};
+    camTs = v.ts || 0; camBat = v.battery == null ? -1 : v.battery; camChg = !!v.charging;
+    renderStatus();
+  });
+  ref.child("photo").on("value", async s => {
+    const v = s.val();
+    if (!v || !v.data) return;
+    $("photo").src = "data:image/jpeg;base64," + v.data;
+    if (v.id && v.id === awaitId && v.id !== lastAddedId) {
+      lastAddedId = v.id;
+      const it = { type: "photo", blob: b64ToBlob(v.data, "image/jpeg"), ts: Date.now(), dev: camName, flash: !!v.flash };
+      await dbAdd(it);
+      lastPhotoItem = it;
+      $("pmsg").textContent = "Photo gallery mein aa gayi. Chahen to phone mein save karen ya delete karen.";
+      $("pbar").style.display = "block";
+      setInfo("Photo mil gayi.");
+    } else if (!mode && !lastPhotoItem) {
+      setInfo("Aakhri photo: " + new Date(v.ts).toLocaleString());
+    }
+  });
+  renderStatus();
+}
+$("bSaveP").onclick = () => { if (lastPhotoItem) saveItem(lastPhotoItem); };
+$("bDelP").onclick = async () => {
+  if (!lastPhotoItem) return;
+  await dbDel(lastPhotoItem.id);
+  lastPhotoItem = null;
+  $("pbar").style.display = "none";
+  $("photo").removeAttribute("src");
+  setInfo("Photo delete ho gayi.");
+};
+
+function closeDevice() {
+  stopSession(true);
+  if (ref) { ref.child("status").off(); ref.child("photo").off(); }
+  ref = null;
+  show("pList");
+}
+$("bBack").onclick = closeDevice;
+
+function renderStatus() {
+  if (!ref) return;
+  const on = isOnline(camTs);
+  $("st").textContent = on
+    ? "Camera online" + (camBat >= 0 ? " | battery " + camBat + "%" : "") + (camChg ? " | charger laga hai" : " | charger NAHI laga")
+    : "Camera offline (purana phone band ya internet nahi)";
+}
+
+function sendCmd(action, s) {
+  if (!ref) return 0;
+  lastId = Math.max(lastId + 1, Date.now());
+  ref.child("cmd").set({ id: lastId, action: action, facing: facing, flash: flash && facing === "back", sid: s || "" });
+  return lastId;
+}
+
+function ensureCtx() {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+  } catch (e) {}
+}
+
+$("bPhoto").onclick = () => {
+  if (mode) { setInfo("Pehle live ya awaaz band karen."); return; }
+  $("pbar").style.display = "none";
+  lastPhotoItem = null;
+  setInfo(flash && facing === "back" ? "Flash ke saath photo aa rahi hai (2-3 second)…" : "Photo aa rahi hai…");
+  awaitId = sendCmd("photo", "");
+};
+$("bLive").onclick = () => { ensureCtx(); toggle("live"); };
+$("bMic").onclick = () => { ensureCtx(); toggle("mic"); };
+$("bFace").onclick = () => {
+  facing = facing === "back" ? "front" : "back";
+  $("bFace").textContent = facing === "back" ? "Camera: peeche wala" : "Camera: samne wala";
+  if (facing === "front" && flash) setInfo("Samne wale camera mein flash nahi hota.");
+  if (mode) restartSession();
+};
+$("bFlash").onclick = () => {
+  flash = !flash;
+  $("bFlash").textContent = flash ? "Flash: chalu" : "Flash: band";
+  $("bFlash").className = flash ? "on" : "";
+  if (facing === "front" && flash) setInfo("Samne wale camera mein flash nahi hota. Peeche wala chunen.");
+  if (mode === "live") restartSession();
+};
+function restartSession() {
+  const m = mode;
+  stopSession(true);
+  setTimeout(() => { ensureCtx(); startSession(m); }, 1500);
+}
+
+$("vol").oninput = () => {
+  const v = Number($("vol").value);
+  $("volv").textContent = v + "x";
+  if (gainNode) gainNode.gain.value = v;
+};
+
+function toggle(m) {
+  if (mode === m) { stopSession(true); return; }
+  const wait = mode ? 800 : 0;
+  if (mode) stopSession(true);
+  setTimeout(() => startSession(m), wait);
+}
+
+function rnd() {
+  const c = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let r = "";
+  for (let i = 0; i < 10; i++) r += c[Math.floor(Math.random() * c.length)];
+  return r;
+}
+
+function setupAudio(stream) {
+  try {
+    ensureCtx();
+    if (srcNode) { try { srcNode.disconnect(); } catch (e) {} }
+    srcNode = actx.createMediaStreamSource(stream);
+    if (!gainNode) {
+      gainNode = actx.createGain();
+      comp = actx.createDynamicsCompressor();
+      gainNode.connect(comp);
+      comp.connect(actx.destination);
+    }
+    gainNode.gain.value = Number($("vol").value);
+    srcNode.connect(gainNode);
+    $("vid").muted = true;
+  } catch (e) {
+    $("vid").muted = false;
+  }
+}
+
+function startSession(m) {
+  if (!ref) return;
+  closePeer();
+  mode = m;
+  sid = rnd();
+  pending = [];
+  const base = ref.child("rtc").child(sid);
+  const p = new RTCPeerConnection({ iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" }
+  ] });
+  pc = p;
+
+  p.onicecandidate = e => {
+    if (e.candidate) base.child("viewIce").push({
+      sdpMid: e.candidate.sdpMid || "",
+      sdpMLineIndex: e.candidate.sdpMLineIndex || 0,
+      candidate: e.candidate.candidate
+    });
+  };
+  p.ontrack = e => {
+    const stream = e.streams[0] || new MediaStream([e.track]);
+    remoteStream = stream;
+    const v = $("vid");
+    v.srcObject = stream;
+    v.play().catch(() => {});
+    if (e.track.kind === "audio") setupAudio(stream);
+  };
+  p.oniceconnectionstatechange = () => {
+    if (p !== pc) return;
+    const s = p.iceConnectionState;
+    if (s === "connected" || s === "completed")
+      setInfo(mode === "live" ? "Live chal rahi hai" : "Ghar ki awaaz aa rahi hai. Door ki awaaz ke liye slider barhayen.");
+    else if (s === "failed")
+      setInfo("Connection nahi bana. Mobile data par TURN server chahiye ho sakta hai.");
+  };
+
+  base.child("offer").on("value", async s => {
+    const v = s.val();
+    if (!v || p !== pc || p.remoteDescription) return;
+    await p.setRemoteDescription({ type: "offer", sdp: v.sdp });
+    const a = await p.createAnswer();
+    await p.setLocalDescription(a);
+    await base.child("answer").set({ type: "answer", sdp: a.sdp });
+    pending.forEach(c => p.addIceCandidate(c).catch(() => {}));
+    pending = [];
+  });
+  base.child("camIce").on("child_added", s => {
+    const v = s.val();
+    if (!v || p !== pc) return;
+    const c = { sdpMid: v.sdpMid, sdpMLineIndex: v.sdpMLineIndex, candidate: v.candidate };
+    if (p.remoteDescription) p.addIceCandidate(c).catch(() => {});
+    else pending.push(c);
+  });
+
+  if (m === "live") {
+    $("bLive").textContent = "Live band karo";
+    $("vid").style.display = "block";
+    $("photo").style.display = "none";
+  } else {
+    $("bMic").textContent = "Awaaz band karo";
+  }
+  setInfo("Purane phone se jur raha hai…");
+  sendCmd(m, sid);
+}
+
+function closePeer() {
+  if (rec) { try { rec.stop(); } catch (e) {} }
+  if (sid && ref) {
+    const base = ref.child("rtc").child(sid);
+    base.child("offer").off();
+    base.child("camIce").off();
+    base.remove();
+  }
+  if (srcNode) { try { srcNode.disconnect(); } catch (e) {} srcNode = null; }
+  if (pc) { pc.close(); pc = null; }
+  $("vid").srcObject = null;
+  remoteStream = null;
+  sid = "";
+  pending = [];
+}
+
+function stopSession(tell) {
+  if (!mode && !pc) return;
+  closePeer();
+  mode = "";
+  if (tell) sendCmd("stop", "");
+  $("bLive").textContent = "Live video";
+  $("bMic").textContent = "Awaaz suno";
+  $("vid").style.display = "none";
+  $("photo").style.display = "block";
+  setInfo("Band kar diya.");
+}
+
+$("bRec").onclick = () => {
+  if (rec) { rec.stop(); return; }
+  if (!remoteStream || !remoteStream.getAudioTracks().length) {
+    setInfo("Pehle \"Awaaz suno\" ya \"Live video\" chalayen, phir record karen.");
+    return;
+  }
+  if (typeof MediaRecorder === "undefined") { setInfo("Is browser mein awaaz record nahi hoti."); return; }
+  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  const mt = types.find(t => MediaRecorder.isTypeSupported(t));
+  recChunks = [];
+  const name = camName;
+  const r = new MediaRecorder(new MediaStream(remoteStream.getAudioTracks()), mt ? { mimeType: mt } : undefined);
+  rec = r;
+  r.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
+  r.onstop = async () => {
+    const blob = new Blob(recChunks, { type: r.mimeType || "audio/webm" });
+    rec = null;
+    $("bRec").textContent = "Awaaz record karo";
+    $("bRec").className = "";
+    if (blob.size > 0) {
+      await dbAdd({ type: "audio", blob: blob, ts: Date.now(), dev: name });
+      setInfo("Awaaz gallery mein save ho gayi. Gallery mein sun, save ya delete kar sakte hain.");
+    }
+  };
+  r.start(1000);
+  $("bRec").textContent = "Record band karo";
+  $("bRec").className = "rec";
+  setInfo("Awaaz record ho rahi hai…");
+};
+
+window.addEventListener("pagehide", () => { if (mode) stopSession(true); });
+</script>
+</body>
+</html>
