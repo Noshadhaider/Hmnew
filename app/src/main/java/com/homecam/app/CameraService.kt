@@ -144,7 +144,15 @@ class CameraService : Service() {
     @Suppress("DEPRECATION")
     private fun acquireLocks() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "homecam:service").apply {
+        // PARTIAL_WAKE_LOCK sirf CPU ko jagaye rakhta hai, screen/GPU display pipeline
+        // band ho jati hai — kuch phones mein isi wajah se camera ka preview (jo GPU/
+        // SurfaceTexture use karta hai) screen band hote hi "black" frames dene lagta
+        // hai, chahe service khud chalti rahe. SCREEN_DIM_WAKE_LOCK screen ko mand
+        // roshni mein jagaya rakhta hai, taake camera pipeline suspend na ho.
+        wakeLock = pm.newWakeLock(
+            PowerManager.SCREEN_DIM_WAKE_LOCK or PowerManager.ON_AFTER_RELEASE,
+            "homecam:service"
+        ).apply {
             setReferenceCounted(false)
             acquire()
         }
